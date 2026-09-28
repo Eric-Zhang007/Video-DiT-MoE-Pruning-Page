@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="DIET: DeletIon-response Expert Trimming for Video Diffusion Transformers">
+  <meta name="keywords" content="MoE, expert pruning, video diffusion transformers, training-free compression">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DIET: DeletIon-response Expert Trimming for Video Diffusion Transformers</title>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+
+  <style>
+    h2.section-title {
+      display: inline-block;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 30px;
+      border-radius: 25px;
+      border: none;
+      margin: 50px auto 20px;
+      font-size: 1.6em;
+      font-weight: 600;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+      letter-spacing: 0.5px;
+    }
+    .section-divider {
+      margin: 30px auto 20px;
+      padding: 0;
+      border-top: 2px solid #ddd;
+      max-width: 1067px;
+      width: 100%;
+    }
+    .paper-figure {
+      max-width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      display: block;
+      margin: 0 auto;
+    }
+    .fig-caption {
+      font-size: 0.92em;
+      color: #666;
+      max-width: 900px;
+      margin: 12px auto 0;
+      text-align: center;
+      line-height: 1.55;
+    }
+    .stat-card {
+      background: linear-gradient(135deg, #f7f8ff 0%, #eef1ff 100%);
+      border: 1px solid #dde3ff;
+      border-radius: 14px;
+      padding: 26px 18px;
+      text-align: center;
+      height: 100%;
+    }
+    .stat-number {
+      font-size: 2.1em;
+      font-weight: 700;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.2;
+    }
+    .stat-label {
+      color: #555;
+      font-size: 0.95em;
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+    .method-list li {
+      margin-bottom: 16px;
+      line-height: 1.75;
+      color: #444;
+    }
+    .gallery-figure { margin-bottom: 40px; }
+    footer {
+      text-align: center;
+      margin-top: 80px;
+      padding-top: 30px;
+      color: #666;
+      font-size: 0.9em;
+    }
+    footer::before {
+      content: '';
+      display: block;
+      margin: 0 auto 30px;
+      width: 100%;
+      max-width: 1200px;
+      border-top: 2px solid #ddd;
+    }
+    .video-section { margin-bottom: 60px; text-align: center; }
+    .video-row { display: flex; flex-wrap: wrap; margin: 0 -10px; align-items: flex-start; justify-content: center; }
+    .video-container { flex: 0 1 auto; margin: 10px; box-sizing: border-box; text-align: center; display: flex; flex-direction: column; min-width: 200px; max-width: 300px; }
+    .video-fixed-ratio { width: 100%; height: auto; max-height: 500px; object-fit: contain; background-color: #000; border: 1px solid #ddd; border-radius: 8px; }
+    .video-container p { margin-top: 8px; font-size: 14px; color: #555; word-wrap: break-word; font-weight: 600; }
+    .comparison-prompt {
+      width: 100%;
+      text-align: center;
+      font-weight: bold;
+      font-size: 1.05em;
+      margin-top: 20px;
+      margin-bottom: 15px;
+      padding: 0 10px;
+      box-sizing: border-box;
+      color: #333;
+      line-height: 1.5;
+    }
+    .case-divider {
+      margin: 40px auto 20px;
+      padding: 0;
+      border-top: 1px dashed #999;
+      max-width: 1067px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+  <section class="hero">
+    <div class="hero-body">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column has-text-centered">
+            <h1 class="title is-2 publication-title">DIET: DeletIon-response Expert Trimming<br>for Video Diffusion Transformers</h1>
+            <div class="is-size-5 publication-authors">
+              <span class="author-block">Jiachang Zhang<sup>1,2,&ast;</sup>,</span>
+              <span class="author-block">Teng Hu<sup>2,&ast;</sup>,</span>
+              <span class="author-block">Bohao Feng<sup>3</sup>,</span>
+              <span class="author-block">Songhang Shen<sup>2</sup>,</span>
+              <span class="author-block">Wenqiang Wang<sup>4</sup>,</span>
+              <span class="author-block">Hongqian Deng<sup>4</sup>,</span>
+              <span class="author-block">Ran Yi<sup>2,&dagger;</sup></span>
+            </div>
+            <div class="is-size-6 publication-authors" style="margin-top: 6px; color: #555;">
+              <span class="author-block"><sup>1</sup>Xi'an Jiao Tong University</span>
+              <span class="author-block"><sup>2</sup>Shanghai Jiao Tong University</span>
+              <span class="author-block"><sup>3</sup>Alibaba Token Hub, Alibaba Group</span>
+              <span class="author-block"><sup>4</sup>Alibaba Cloud Computing</span>
+            </div>
+            <div class="is-size-6" style="margin: 10px auto 4px; color: #555;">
+              <sup>&ast;</sup>Equal contribution&nbsp;&nbsp;&nbsp;&nbsp;<sup>&dagger;</sup>Corresponding author
+            </div>
+
+            <div class="column has-text-centered">
+              <div class="publication-links">
+                <!-- Paper link will be added after the arXiv announcement. -->
+                <span class="link-block">
+                  <a href="https://github.com/Eric-Zhang007/Video-DiT-MoE-Pruning" class="external-link button is-normal is-rounded is-dark" target="_blank" rel="noopener">
+                    <span class="icon"><i class="fab fa-github"></i></span>
+                    <span>Code</span>
+                  </a>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Overview -->
+  <section class="section" id="overview">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-full">
+          <h2 class="section-title">Training-Free Expert Pruning</h2>
+          <div class="section-divider"></div>
+          <div class="content" style="color: #555; line-height: 1.8; font-size: 1.05em; max-width: 900px; margin: 20px auto;">
+            <p>
+              Expert pruning shrinks an already-trained mixture-of-experts model without retraining, distillation
+              or gradients&mdash;but deleting an expert <strong>re-routes</strong> the tokens it served, so scoring
+              experts in isolation measures a quantity the model never uses. We make the counterfactual cheap to
+              observe: one all-expert calibration capture turns every layer-local leave-one-out deletion into a
+              cache-based replay, and a single <strong>deletion-response signature</strong> per expert drives the
+              selection. We prune <strong>LingBot-Video 30B-A3B</strong> at a 50% budget with no training: a pruned
+              replica fits a single 48&nbsp;GB card while generation quality remains essentially intact under the official scorer.
+            </p>
+          </div>
+          <img src="./images/teaser.png" class="paper-figure" style="max-width: 860px;" alt="Overview of training-free expert pruning">
+          <p class="fig-caption">
+            Expert pruning is a re-routing problem, not a subtraction problem. (a)&nbsp;Deleting an expert changes
+            the grouped top-<em>k</em> decision: the tokens it served are re-routed. (b)&nbsp;One instrumented
+            all-expert capture makes every layer-local deletion replayable at the captured states, so the whole
+            6,144-deletion study costs no further forward passes. (c)&nbsp;At a 50% budget this yields a smaller
+            checkpoint and a rise in the official VBench Total, without any training.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Abstract -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-full">
+          <h2 class="section-title">Abstract</h2>
+          <div class="section-divider"></div>
+          <div class="content has-text-justified" style="color: #555; line-height: 1.8; font-size: 1.05em; max-width: 960px; margin: 0 auto;">
+            <p>
+              Video diffusion transformers (DiTs) increasingly rely on mixture-of-experts (MoE)
+              architectures, where only a sparse subset of a large expert bank is activated per token.
+              While dynamic sparsity reduces active compute, it leaves the full expert storage footprint
+              intact. Furthermore, conventional one-shot pruning criteria rely on static activation or
+              routing statistics, failing to capture the layer-level re-routing behavior triggered after
+              expert deletion. To make this post-deletion behavior observable without prohibitive cost, we
+              record all expert outputs and router states across matched conditional and unconditional
+              tokens in a single all-expert calibration pass. Consequently, replaying any single-expert
+              deletion and its grouped re-routing reduces to tensor arithmetic on cached states, requiring
+              zero additional model forward passes. Using these deletion responses, we formulate
+              retained-expert selection as an Overall Diversity Loss (ODL): each pruned expert is matched
+              with its nearest retained expert and the summed nearest-neighbor cosine distances define a
+              set-level coverage loss under which deleted experts closer to retained ones cost less,
+              directly prioritizing functional coverage. We solve this optimization in two stages: an
+              intra-layer local search combining greedy initialization, single-swap refinement, and
+              simulated annealing to select retained set under a fixed retention ratio, and an inter-layer
+              regression-guided search that optimizes expert-count allocation across layers. Evaluated on
+              LingBot-Video 30B-A3B, pruning 50% of the experts (6,144&thinsp;&rarr;&thinsp;3,072) without
+              fine-tuning reduces the checkpoint footprint from 57&nbsp;GB to 30&nbsp;GB, enabling
+              single-card deployment on a 48&nbsp;GB GPU while generation quality remains essentially
+              intact: we observe the official VBench Total rise from 0.7941 to 0.8115 across a fixed
+              284-case protocol. Across all other tested retention budgets, DIET consistently outperforms
+              competitive baselines adapted from large language models.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Method -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-full">
+          <h2 class="section-title">Method</h2>
+          <div class="section-divider"></div>
+          <div class="content has-text-justified" style="max-width: 900px; margin: 10px auto 0;">
+            <ul class="method-list" style="list-style: none; padding-left: 0;">
+              <li><strong>One instrumented capture.</strong> A single pass over 120 calibration cases&mdash;evaluating
+                all 128 experts per layer on matched conditional and unconditional tokens&mdash;records every expert
+                output and every router score (368,640 matched token pairs), once.</li>
+              <li><strong>Frozen-state replay.</strong> Deleting an expert and recomputing the grouped top-<em>k</em>
+                routing at the captured states reproduces the layer-local leave-one-out deletion with zero
+                additional forward passes: all 6,144 deletions become cache arithmetic.</li>
+              <li><strong>Deletion-response signatures.</strong> Each expert is summarised by the change it causes
+                when removed. Signatures are used strictly for their directional orientation: concurrent
+                removals violate linear superposition, so absolute perturbation size does not reliably reflect
+                joint dynamics, while direction measures functional interchangeability.</li>
+              <li><strong>Overall diversity loss selection.</strong> The retained set is chosen to minimise an overall diversity loss (ODL)&mdash;each deleted expert pays the distance to its nearest retained expert in deletion-response space&mdash;under the grouped-router feasibility constraints, preserving diverse
+                deletion responses rather than merely active experts.</li>
+              <li><strong>Regression-guided budget.</strong> Per-layer kept counts come from an offline
+                search on a 142-case budget-search set that linearises the official VBench Total;
+                the 284-case protocol's 142 strictly held-out prompts are evaluated separately.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Results -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-full">
+          <h2 class="section-title">Results</h2>
+          <div class="section-divider"></div>
+
+          <div class="columns is-centered" style="margin: 30px auto 10px; max-width: 900px;">
+            <div class="column is-4">
+              <div class="stat-card">
+                <div class="stat-number">50%</div>
+                <div class="stat-label">of the expert bank removed (6,144 &rarr; 3,072 experts) with no retraining</div>
+              </div>
+            </div>
+            <div class="column is-4">
+              <div class="stat-card">
+                <div class="stat-number">1&times; 48&nbsp;GB</div>
+                <div class="stat-label">a pruned replica fits one card; replica VRAM halves (93 &rarr; 45&nbsp;GiB)</div>
+              </div>
+            </div>
+            <div class="column is-4">
+              <div class="stat-card">
+                <div class="stat-number">0.8115</div>
+                <div class="stat-label">VBench Total (pruned) vs 0.7941 (unpruned) under the official scorer</div>
+              </div>
+            </div>
+          </div>
+
+          <img src="./images/dashboard.png" class="paper-figure" style="max-width: 940px;" alt="Main results">
+          <p class="fig-caption">
+            Main results. (a)&nbsp;The selection-corpus sweep: the best operating point occurs at 50% retention.
+            (b)&nbsp;The full 284-case protocol at the same budget, all methods at the identical (searched) per-layer
+            kept-count vector. (c)&nbsp;Paired per-case differences against the unpruned model and the transplanted
+            criteria, with 95% bootstrap intervals.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Analysis -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-full">
+          <h2 class="section-title">Analysis</h2>
+          <div class="section-divider"></div>
+
+          <img src="./images/mechanism.png" class="paper-figure" style="max-width: 860px;" alt="Breakdown of additive superposition under joint multi-expert deletions">
+          <p class="fig-caption">
+            What breaks under joint deletions is additivity, not distance. Joint multi-expert removals violate
+            linear superposition: the cosine similarity between a joint deletion perturbation and the sum of its
+            single-deletion responses falls from 1.00 at k&thinsp;=&thinsp;1 to 0.66 at k&thinsp;=&thinsp;64, with
+            reconstruction error rising to 0.95. Objectives built on summed responses degrade by 5.44 points,
+            consistent with the non-additivity measured here.
+          </p>
+
+          <img src="./images/reroute.png" class="paper-figure" style="max-width: 760px; margin-top: 50px;" alt="Routing analysis">
+          <p class="fig-caption">
+            Pruning is not routing preservation. The best-scoring mask is the most disruptive to the original
+            routing, while the criteria that lose the most quality preserve routing the most&mdash;so minimising
+            routing change is the wrong objective.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Qualitative results -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-full">
+          <h2 class="section-title">Qualitative Results</h2>
+          <div class="section-divider"></div>
+          <div class="content" style="color: #555; line-height: 1.75; font-size: 1.02em; max-width: 900px; margin: 20px auto;">
+            <p>
+              One case per VBench dimension (the instances follow the paper's qualitative grids), generated from identical
+              prompts and seeds: the pruned model at 50% retention against the unpruned model. The final three blocks extend the
+              comparison to all arms on three representative cases, where the ported criteria degrade structurally while DIET remains
+              visually consistent with the unpruned model.
+            </p>
+          </div>
+
+          <div class="video-section">
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Subject consistency</strong> &middot; &ldquo;an elephant taking a peaceful walk&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/subject_consistency-060-783eaa95_ours.jpg"><source src="./videos_g16/subject_consistency-060-783eaa95_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/subject_consistency-060-783eaa95_full.jpg"><source src="./videos_g16/subject_consistency-060-783eaa95_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Background consistency</strong> &middot; &ldquo;art gallery&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/background_consistency-780-a1ec4fa9_ours.jpg"><source src="./videos_g16/background_consistency-780-a1ec4fa9_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/background_consistency-780-a1ec4fa9_full.jpg"><source src="./videos_g16/background_consistency-780-a1ec4fa9_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Temporal flickering</strong> &middot; &ldquo;a dilapidated phone booth stood as a relic of a bygone era on the sidewalk, frozen in time&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/temporal_flickering-039-e062b000_ours.jpg"><source src="./videos_g16/temporal_flickering-039-e062b000_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/temporal_flickering-039-e062b000_full.jpg"><source src="./videos_g16/temporal_flickering-039-e062b000_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Motion smoothness</strong> &middot; &ldquo;a bus turning a corner&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/motion_smoothness-281-5fca4292_ours.jpg"><source src="./videos_g16/motion_smoothness-281-5fca4292_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/motion_smoothness-281-5fca4292_full.jpg"><source src="./videos_g16/motion_smoothness-281-5fca4292_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Dynamic degree</strong> &middot; &ldquo;a bicycle accelerating to gain speed&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/dynamic_degree-267-d22b9457_ours.jpg"><source src="./videos_g16/dynamic_degree-267-d22b9457_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/dynamic_degree-267-d22b9457_full.jpg"><source src="./videos_g16/dynamic_degree-267-d22b9457_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Aesthetic quality</strong> &middot; &ldquo;a drone flying over a snowy forest.&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/aesthetic_quality-702-2211dc13_ours.jpg"><source src="./videos_g16/aesthetic_quality-702-2211dc13_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/aesthetic_quality-702-2211dc13_full.jpg"><source src="./videos_g16/aesthetic_quality-702-2211dc13_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Imaging quality</strong> &middot; &ldquo;Origami dancers in white paper, 3D render, on white background, studio shot, dancing modern dance.&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/imaging_quality-711-5ecd112e_ours.jpg"><source src="./videos_g16/imaging_quality-711-5ecd112e_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/imaging_quality-711-5ecd112e_full.jpg"><source src="./videos_g16/imaging_quality-711-5ecd112e_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Object class</strong> &middot; &ldquo;a sandwich&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/object_class-048-de6bd14f_ours.jpg"><source src="./videos_g16/object_class-048-de6bd14f_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/object_class-048-de6bd14f_full.jpg"><source src="./videos_g16/object_class-048-de6bd14f_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Multiple objects</strong> &middot; &ldquo;a potted plant and a tv&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/multiple_objects-012-f9f795ed_ours.jpg"><source src="./videos_g16/multiple_objects-012-f9f795ed_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/multiple_objects-012-f9f795ed_full.jpg"><source src="./videos_g16/multiple_objects-012-f9f795ed_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Human action</strong> &middot; &ldquo;A person is riding or walking with horse&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/human_action-078-79c133e0_ours.jpg"><source src="./videos_g16/human_action-078-79c133e0_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/human_action-078-79c133e0_full.jpg"><source src="./videos_g16/human_action-078-79c133e0_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Color</strong> &middot; &ldquo;a green chair&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/color-059-a853d59d_ours.jpg"><source src="./videos_g16/color-059-a853d59d_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/color-059-a853d59d_full.jpg"><source src="./videos_g16/color-059-a853d59d_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Spatial relationship</strong> &middot; &ldquo;a cat on the right of a dog, front view&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/spatial_relationship-011-36369509_ours.jpg"><source src="./videos_g16/spatial_relationship-011-36369509_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/spatial_relationship-011-36369509_full.jpg"><source src="./videos_g16/spatial_relationship-011-36369509_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Scene</strong> &middot; &ldquo;laboratory&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/scene-050-3791510b_ours.jpg"><source src="./videos_g16/scene-050-3791510b_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/scene-050-3791510b_full.jpg"><source src="./videos_g16/scene-050-3791510b_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Appearance style</strong> &middot; &ldquo;An astronaut flying in space, animated style&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/appearance_style-078-de68af39_ours.jpg"><source src="./videos_g16/appearance_style-078-de68af39_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/appearance_style-078-de68af39_full.jpg"><source src="./videos_g16/appearance_style-078-de68af39_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Temporal style</strong> &middot; &ldquo;The bund Shanghai, zoom in&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/temporal_style-011-dad8128c_ours.jpg"><source src="./videos_g16/temporal_style-011-dad8128c_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/temporal_style-011-dad8128c_full.jpg"><source src="./videos_g16/temporal_style-011-dad8128c_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Overall consistency</strong> &middot; &ldquo;A raccoon is playing the electronic guitar.&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/overall_consistency-048-e8698430_ours.jpg"><source src="./videos_g16/overall_consistency-048-e8698430_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/overall_consistency-048-e8698430_full.jpg"><source src="./videos_g16/overall_consistency-048-e8698430_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Scene (all arms)</strong> &middot; &ldquo;ballroom&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/scene-007-c501494d_ours.jpg"><source src="./videos_g16/scene-007-c501494d_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/scene-007-c501494d_full.jpg"><source src="./videos_g16/scene-007-c501494d_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/scene-007-c501494d_reap.jpg"><source src="./videos_g16/scene-007-c501494d_reap.mp4" type="video/mp4"></video>
+                <p>REAP (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/scene-007-c501494d_routerfreq.jpg"><source src="./videos_g16/scene-007-c501494d_routerfreq.mp4" type="video/mp4"></video>
+                <p>Routing Freq. (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/scene-007-c501494d_shape.jpg"><source src="./videos_g16/scene-007-c501494d_shape.mp4" type="video/mp4"></video>
+                <p>SHAPE (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/scene-007-c501494d_tbcoverage.jpg"><source src="./videos_g16/scene-007-c501494d_tbcoverage.mp4" type="video/mp4"></video>
+                <p>TB-Coverage (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/scene-007-c501494d_hts.jpg"><source src="./videos_g16/scene-007-c501494d_hts.mp4" type="video/mp4"></video>
+                <p>HTS (50%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Aesthetic quality (all arms)</strong> &middot; &ldquo;An astronaut feeding ducks on a sunny afternoon, reflection from the water.&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/aesthetic_quality-687-9cbf59a6_ours.jpg"><source src="./videos_g16/aesthetic_quality-687-9cbf59a6_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/aesthetic_quality-687-9cbf59a6_full.jpg"><source src="./videos_g16/aesthetic_quality-687-9cbf59a6_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/aesthetic_quality-687-9cbf59a6_reap.jpg"><source src="./videos_g16/aesthetic_quality-687-9cbf59a6_reap.mp4" type="video/mp4"></video>
+                <p>REAP (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/aesthetic_quality-687-9cbf59a6_routerfreq.jpg"><source src="./videos_g16/aesthetic_quality-687-9cbf59a6_routerfreq.mp4" type="video/mp4"></video>
+                <p>Routing Freq. (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/aesthetic_quality-687-9cbf59a6_shape.jpg"><source src="./videos_g16/aesthetic_quality-687-9cbf59a6_shape.mp4" type="video/mp4"></video>
+                <p>SHAPE (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/aesthetic_quality-687-9cbf59a6_tbcoverage.jpg"><source src="./videos_g16/aesthetic_quality-687-9cbf59a6_tbcoverage.mp4" type="video/mp4"></video>
+                <p>TB-Coverage (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/aesthetic_quality-687-9cbf59a6_hts.jpg"><source src="./videos_g16/aesthetic_quality-687-9cbf59a6_hts.mp4" type="video/mp4"></video>
+                <p>HTS (50%)</p>
+              </div>
+            </div>
+            <div class="case-divider"></div>
+            <p class="comparison-prompt"><strong>Temporal style (all arms)</strong> &middot; &ldquo;A cute happy Corgi playing in park, sunset, tilt up&rdquo;</p>
+            <div class="video-row">
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/temporal_style-045-82e4db0b_ours.jpg"><source src="./videos_g16/temporal_style-045-82e4db0b_ours.mp4" type="video/mp4"></video>
+                <p>DIET (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/temporal_style-045-82e4db0b_full.jpg"><source src="./videos_g16/temporal_style-045-82e4db0b_full.mp4" type="video/mp4"></video>
+                <p>Unpruned (100%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/temporal_style-045-82e4db0b_reap.jpg"><source src="./videos_g16/temporal_style-045-82e4db0b_reap.mp4" type="video/mp4"></video>
+                <p>REAP (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/temporal_style-045-82e4db0b_routerfreq.jpg"><source src="./videos_g16/temporal_style-045-82e4db0b_routerfreq.mp4" type="video/mp4"></video>
+                <p>Routing Freq. (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/temporal_style-045-82e4db0b_shape.jpg"><source src="./videos_g16/temporal_style-045-82e4db0b_shape.mp4" type="video/mp4"></video>
+                <p>SHAPE (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/temporal_style-045-82e4db0b_tbcoverage.jpg"><source src="./videos_g16/temporal_style-045-82e4db0b_tbcoverage.mp4" type="video/mp4"></video>
+                <p>TB-Coverage (50%)</p>
+              </div>
+              <div class="video-container">
+                <video class="video-fixed-ratio" controls muted loop preload="metadata" poster="./videos_g16/temporal_style-045-82e4db0b_hts.jpg"><source src="./videos_g16/temporal_style-045-82e4db0b_hts.mp4" type="video/mp4"></video>
+                <p>HTS (50%)</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+
+
+  <footer>
+    <p>DIET: DeletIon-response Expert Trimming for Video Diffusion Transformers</p>
+  </footer>
+
+  <script>
+    // Wait for page to load and unify video dimensions
+    window.addEventListener('load', function() {
+        // Get all video rows
+        const videoRows = document.querySelectorAll('.video-row');
+
+        videoRows.forEach(row => {
+            // Get all videos in this row
+            const videos = row.querySelectorAll('video');
+            if (videos.length === 0) return;
+
+            // The first video should be "Ours"
+            const oursVideo = videos[0];
+
+            // Wait for the first video to load metadata
+            oursVideo.addEventListener('loadedmetadata', function() {
+                const targetWidth = oursVideo.videoWidth;
+                const targetHeight = oursVideo.videoHeight;
+                const aspectRatio = targetWidth / targetHeight;
+
+                // Set all videos in this row to the same dimensions
+                videos.forEach(video => {
+                    video.style.width = '100%';
+                    video.style.height = 'auto';
+                    video.style.aspectRatio = aspectRatio;
+                    video.style.objectFit = 'fill'; // Stretch to fill
+                });
+            });
+
+            // If video is already loaded, trigger immediately
+            if (oursVideo.readyState >= 1) {
+                oursVideo.dispatchEvent(new Event('loadedmetadata'));
+            }
+        });
+    });
+  </script>
+
+</body>
+</html>
