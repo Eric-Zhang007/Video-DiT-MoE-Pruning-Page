@@ -6,11 +6,10 @@
    To collect answers centrally, deploy the Google Apps Script in
    COLLECT.md (5 minutes) and paste its /exec URL below.
    ------------------------------------------------------------------ */
-const ENDPOINT = "";
+const ENDPOINT = "https://formsubmit.co/ajax/zjc010100000@gmail.com";
 const STUDY_ID = "diet-study-v1";
 
 const state = {};           // caseNum -> [labels]
-const labels = ["A", "B", "C", "D", "E"];
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -38,7 +37,7 @@ function render() {
     card.appendChild(prompt);
 
     const grid = el("div", "grid");
-    labels.forEach((lab) => {
+    c.labels.forEach((lab) => {
       const clip = el("div", "clip");
       clip.dataset.label = lab;
 
@@ -159,9 +158,12 @@ async function submit() {
   status.className = "status";
   status.textContent = "Submitting…";
   try {
+    const isFormSubmit = ENDPOINT.indexOf("formsubmit.co") !== -1;
     const res = await fetch(ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      headers: isFormSubmit
+        ? { "Content-Type": "application/json", "Accept": "application/json" }
+        : { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
