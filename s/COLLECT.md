@@ -1,65 +1,30 @@
-# 投票收集：改用 Google Apps Script（FormSubmit 激活失败）
+# 投票收集：提交即开 GitHub issue
 
-FormSubmit 的激活邮件没有生效（接口仍返回 `needs Activation`），不再依赖它。
-改用 Google Apps Script 直接写入 Google Sheet：不需要邮箱激活，提交即入表。
+页面不再依赖第三方表单服务。答完 10 组后点 **Submit my answers**，会新开一个 GitHub 标签页，
+里面是**预填好的 issue**（标题 `vote-<session>`，正文是 JSON，标签 `study-vote`）。
+被试只需要点一次 **Submit new issue**。
 
-## 5 步，约 3 分钟
+## 为什么不能全自动
 
-1. 打开 https://sheets.new 新建一个空白表格，命名随意（例如 `diet-study`）。
-2. 菜单 **扩展程序 → Apps Script**，删掉里面默认的 `function myFunction(){}`，
-   把下面整段贴进去，保存（Ctrl+S）：
+静态页面没有任何 GitHub 凭证。要在浏览器里直接调 API 建 issue，必须把 personal access
+token 写进 `app.js`；而这个文件在公开仓库里，GitHub 的 secret scanning 会发现并吊销 token。
+所以采用“预填 issue + 被试点一次提交”的方式，这是不暴露凭证前提下最接近自动的方案。
 
-```javascript
-function doPost(e) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['submitted_at','session','answers_json','familiarity','age','viewport']);
-  }
-  const d = JSON.parse(e.postData.contents);
-  sheet.appendRow([
-    d.submitted_at,
-    d.session,
-    JSON.stringify(d.answers),
-    (d.background || {}).familiarity || '',
-    (d.background || {}).age || '',
-    d.viewport || ''
-  ]);
-  return ContentService.createTextOutput(JSON.stringify({ok: true}))
-    .setMimeType(ContentService.MimeType.JSON);
-}
+## 结果在哪看
 
-function doGet() {
-  return ContentService.createTextOutput(JSON.stringify({ok: true, msg: 'endpoint alive'}))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-```
+- 原始记录：仓库 Issues，筛选标签 `study-vote`，一条 issue = 一份问卷。
+- 实时汇总页：https://zjc301.top/Video-DiT-MoE-Pruning-Page/s/results.html
+  按组统计每个标签被选中的次数（只有标签，不含方法名）。
+- 本地映射：`CVPR27_DIET/user_study/tally.py` 用 `key.csv` 把标签换成方法，
+  算每组的平均名次、前二比例。
 
-3. 右上 **部署 → 新建部署**，齿轮选 **Web 应用**：
-   - 说明：随便填
-   - **执行身份：我**
-   - **谁可以访问：任何人**  ← 必须是这个，否则页面收不到
-   点“部署”，第一次会让你授权：选账号 → 高级 → 转到（不安全）→ 允许。
-4. 复制生成的 **Web 应用网址**，形如
-   `https://script.google.com/macros/s/AKfycb....../exec`
-5. 把这个链接发给我，我填进 `app.js`、推上去，并用浏览器做一次真实提交，
-   然后在表格里确认出现一行。
+## 被试需要什么
 
-## 验证
+一个 GitHub 账号（没有的话页面提供 JSON 备份按钮，让他把文件发给组织者）。
+如果被试群体没有 GitHub 账号，改用 Google Apps Script 写 Google Sheet（见 git 历史里的版本）。
 
-部署完成后，浏览器直接打开那个 `/exec` 链接应该看到：
+## 名额与限流
 
-```json
-{"ok": true, "msg": "endpoint alive"}
-```
-
-看到就说明部署成功、权限正确。
-
-## 备注
-
-- 页面用 `text/plain` 发 JSON，避免 CORS 预检；服务端从 `e.postData.contents` 解析。
-- 表格里每行一次提交；`answers_json` 形如 `{"01":["B","D"],...}`。
-- 标签到方法的映射只在 `CVPR27_DIET/user_study/key.csv`，不要上传到网页目录。
-
-## 如果以后想换回 FormSubmit
-
-激活成功后把 `ENDPOINT` 改回 `https://formsubmit.co/ajax/<别名>` 即可，代码里已有分支。
+- 公开仓库的 issue 任何 GitHub 用户都能开，不需要邀请。
+- results.html 用未认证 API 读 issue，每 IP 每小时 60 次，够用。
+- 若想限制乱填，可以在事后按 issue 标题里的 session 去重。

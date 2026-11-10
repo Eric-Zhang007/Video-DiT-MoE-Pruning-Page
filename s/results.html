@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>Study results (live)</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; margin: 0; color: #16202c; }
+  header { padding: 28px 24px 8px; max-width: 1000px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin: 0 0 6px; }
+  .sub { color: #5b6b7c; font-size: .9rem; }
+  main { max-width: 1000px; margin: 0 auto; padding: 10px 24px 50px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 16px; font-size: .9rem; }
+  th, td { border-bottom: 1px solid #e3e8ee; padding: 7px 8px; text-align: center; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { background: #f6f8fb; font-weight: 600; }
+  tr.best td { background: #eef7f0; font-weight: 600; }
+  .bar { height: 8px; background: #e9eef5; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+  .bar > span { display: block; height: 100%; background: #2f6fed; }
+  .note { color: #5b6b7c; font-size: .85rem; margin-top: 18px; line-height: 1.5; }
+  .err { color: #b3261e; }
+  code { background: #f2f4f7; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>User study — live tally</h1>
+  <p class="sub">Counts of how many respondents picked each clip label, per group. Labels map to methods only in the local key file.</p>
+</header>
+<main>
+  <p id="summary" class="sub">Loading…</p>
+  <div id="table"></div>
+  <p class="note">
+    Source: GitHub issues labelled <code>study-vote</code> in
+    <code>Eric-Zhang007/Video-DiT-MoE-Pruning-Page</code>. Each issue body contains one response as JSON.
+    Unauthenticated GitHub API allows 60 requests per hour per IP.
+  </p>
+</main>
+<script>
+const REPO = "Eric-Zhang007/Video-DiT-MoE-Pruning-Page";
+const LABEL = "study-vote";
+const CASES = ["01","02","03","04","05","06","07","08","09","10"];
+const LABELS = ["A","B","C","D","E","F","G"];
+
+async function load() {
+  const url = `https://api.github.com/repos/${REPO}/issues?labels=${LABEL}&state=all&per_page=100`;
+  const res = await fetch(url, { headers: { "Accept": "application/vnd.github+json" } });
+  if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+  const issues = await res.json();
+  const votes = [];
+  for (const it of issues) {
+    const m = (it.body || "").match(/```json\s*([\s\S]*?)```/);
+    if (!m) continue;
+    try {
+      const d = JSON.parse(m[1]);
+      if (d && d.answers) votes.push(d);
+    } catch (e) { /* ignore malformed */ }
+  }
+  render(votes);
+}
+
+function render(votes) {
+  const counts = {};
+  CASES.forEach(c => { counts[c] = Object.fromEntries(LABELS.map(l => [l, 0])); });
+  for (const v of votes) {
+    for (const [c, picked] of Object.entries(v.answers || {})) {
+      if (!counts[c]) continue;
+      (picked || []).forEach(l => { if (counts[c][l] !== undefined) counts[c][l]++; });
+    }
+  }
+  document.getElementById("summary").textContent =
+    `${votes.length} response${votes.length === 1 ? "" : "s"} parsed.`;
+
+  let html = "<table><thead><tr><th>Group</th>";
+  LABELS.forEach(l => html += `<th>${l}</th>`);
+  html += "<th>responses</th></tr></thead><tbody>";
+  for (const c of CASES) {
+    const row = counts[c];
+    const tot = LABELS.reduce((s, l) => s + row[l], 0);
+    const best = Math.max(...LABELS.map(l => row[l]));
+    html += `<tr><td>${c}</td>`;
+    LABELS.forEach(l => {
+      const pct = tot ? Math.round((row[l] / tot) * 100) : 0;
+      html += `<td class="${row[l] === best && best > 0 ? "best" : ""}">${row[l]}
+        <div class="bar"><span style="width:${pct}%"></span></div></td>`;
+    });
+    html += `<td>${tot / 2}</td></tr>`;
+  }
+  html += "</tbody></table>";
+  document.getElementById("table").innerHTML = html;
+}
+
+load().catch(err => {
+  document.getElementById("summary").innerHTML =
+    `<span class="err">Could not load responses: ${err.message}</span>`;
+});
+</script>
+</body>
+</html>

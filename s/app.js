@@ -1,12 +1,11 @@
 /* ------------------------------------------------------------------
-   Collection endpoint.
-   Leave ENDPOINT empty to run in local mode: answers are kept in the
-   browser and offered as a CSV/JSON download (useful for testing).
-
-   To collect answers centrally, deploy the Google Apps Script in
-   COLLECT.md (5 minutes) and paste its /exec URL below.
+   Collection: on submit the page opens a pre-filled GitHub issue on
+   Eric-Zhang007/Video-DiT-MoE-Pruning-Page (label: study-vote).
+   The participant only has to press "Submit new issue".
+   A static page cannot open issues by itself: doing that would require
+   a personal access token shipped inside a public page, which GitHub
+   scans for and revokes.
    ------------------------------------------------------------------ */
-const ENDPOINT = "https://formsubmit.co/ajax/zjc010100000@gmail.com";
 const STUDY_ID = "diet-study-v1";
 
 const state = {};           // caseNum -> [labels]
@@ -129,61 +128,61 @@ function payload() {
   };
 }
 
-function download(data) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `study-${data.session}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+const REPO = "Eric-Zhang007/Video-DiT-MoE-Pruning-Page";
+const ISSUE_LABEL = "study-vote";
+
+function issueUrl(data) {
+  const title = `vote-${data.session}`;
+  const body = "```json\n" + JSON.stringify(data, null, 2) + "\n```";
+  const q = new URLSearchParams({
+    labels: ISSUE_LABEL,
+    title: title,
+    body: body,
+  });
+  return `https://github.com/${REPO}/issues/new?${q.toString()}`;
 }
 
-async function submit() {
-  const status = document.getElementById("status");
+function showPanel(html) {
+  const box = document.getElementById("panel");
+  box.innerHTML = html;
+  box.classList.remove("hidden");
+}
+
+function submit() {
   const data = payload();
+  const url = issueUrl(data);
+  const win = window.open(url, "_blank");
 
-  if (!ENDPOINT) {
-    const all = JSON.parse(localStorage.getItem(STUDY_ID) || "[]");
-    all.push(data);
-    localStorage.setItem(STUDY_ID, JSON.stringify(all));
-    download(data);
-    status.className = "status ok";
-    status.textContent =
-      "Answers saved locally and downloaded as JSON. (Collection endpoint not configured yet.)";
-    return;
+  showPanel(`
+    <h3>Almost done</h3>
+    <p>A GitHub tab should have opened. There, click <strong>Submit new issue</strong> — that is what records your answers.</p>
+    <p><a class="btn" href="${url}" target="_blank" rel="noopener">Open the submission page</a></p>
+    <p class="hint">No GitHub account? Use the backup below and send the file to the organiser.</p>
+    <p><button class="btn ghost" id="copyBtn">Copy answers as JSON</button></p>
+    <p class="hint" id="copyMsg"></p>
+  `);
+
+  if (!win) {
+    document.getElementById("status").className = "status err";
+    document.getElementById("status").textContent =
+      "Your browser blocked the pop-up. Use the button above.";
   }
 
-  const btn = document.getElementById("submitBtn");
-  btn.disabled = true;
-  status.className = "status";
-  status.textContent = "Submitting…";
-  try {
-    const isFormSubmit = ENDPOINT.indexOf("formsubmit.co") !== -1;
-    const res = await fetch(ENDPOINT, {
-      method: "POST",
-      headers: isFormSubmit
-        ? { "Content-Type": "application/json", "Accept": "application/json" }
-        : { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const body = await res.json().catch(() => null);
-    if (isFormSubmit && body && String(body.success).toLowerCase() === "false") {
-      throw new Error(body.message || "the form is not activated yet");
+  document.getElementById("copyBtn").addEventListener("click", async () => {
+    const text = JSON.stringify(data, null, 2);
+    try {
+      await navigator.clipboard.writeText(text);
+      document.getElementById("copyMsg").textContent = "Copied. Paste it into an email to the organiser.";
+    } catch (e) {
+      const blob = new Blob([text], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `study-${data.session}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      document.getElementById("copyMsg").textContent = "Downloaded as a JSON file.";
     }
-    document.body.innerHTML = `
-      <div class="thanks">
-        <h2>Thank you!</h2>
-        <p>Your answers have been recorded.</p>
-        <p class="hint">You can close this tab.</p>
-      </div>`;
-  } catch (err) {
-    btn.disabled = false;
-    status.className = "status err";
-    status.textContent =
-      `Submission failed (${err.message}). Your answers are downloaded as JSON as a backup; please send that file to the organiser.`;
-    download(data);
-  }
+  });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
