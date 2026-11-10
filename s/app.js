@@ -167,6 +167,10 @@ async function submit() {
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const body = await res.json().catch(() => null);
+    if (isFormSubmit && body && String(body.success).toLowerCase() === "false") {
+      throw new Error(body.message || "the form is not activated yet");
+    }
     document.body.innerHTML = `
       <div class="thanks">
         <h2>Thank you!</h2>
