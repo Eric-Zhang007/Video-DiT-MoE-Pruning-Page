@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>Video Generation Quality Study</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="hero">
+  <h1>Video Generation Quality Study</h1>
+  <p class="lede">
+    Below are <strong>10 groups</strong> of short videos. Within each group, the five clips
+    (<strong>A&ndash;E</strong>) were generated from the <em>same</em> text prompt and the
+    <em>same</em> random seed by five different model variants. Only the compression method differs.
+  </p>
+  <p class="lede">
+    For each group, watch the five clips and select the <strong>two</strong> that look best to you.
+    Judge overall visual quality: sharpness, whether objects and subjects are complete and
+    well-formed, natural motion, absence of flicker or warping, and colour/composition.
+    Ignore speed, file size and model size. Take as long as you need; you can replay clips.
+  </p>
+</header>
+
+<div id="progressbar" class="progress"><span id="progressfill"></span></div>
+<div class="progresslabel"><span id="progressText">0 / 10 groups completed</span></div>
+
+<main id="cases"></main>
+
+<section class="background">
+  <h2>A little about you <span class="opt">(optional)</span></h2>
+  <div class="q">
+    <label for="bg1">How familiar are you with video generation models?</label>
+    <select id="bg1">
+      <option value="">Prefer not to say</option>
+      <option value="never">Never used one</option>
+      <option value="tried">Tried a few times</option>
+      <option value="regular">Use them regularly</option>
+      <option value="research">Work or research in this area</option>
+    </select>
+  </div>
+  <div class="q">
+    <label for="bg2">Age range</label>
+    <select id="bg2">
+      <option value="">Prefer not to say</option>
+      <option value="u18">Under 18</option>
+      <option value="18-24">18&ndash;24</option>
+      <option value="25-34">25&ndash;34</option>
+      <option value="35-44">35&ndash;44</option>
+      <option value="45+">45+</option>
+    </select>
+  </div>
+</section>
+
+<section class="submit-area">
+  <button id="submitBtn" disabled>Submit my answers</button>
+  <p id="hint" class="hint">Select exactly two clips in every group to enable submission.</p>
+  <p id="status" class="status"></p>
+</section>
+
+<footer>
+  <p>This page is for an academic user study. No personal data is collected beyond the answers above.</p>
+</footer>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
