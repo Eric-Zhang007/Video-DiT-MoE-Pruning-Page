@@ -1,51 +1,13 @@
-# 投票收集说明（当前：FormSubmit）
+# 投票收集：改用 Google Apps Script（FormSubmit 激活失败）
 
-页面把每次提交 POST 到 `app.js` 顶部的 `ENDPOINT`，当前配置为：
+FormSubmit 的激活邮件没有生效（接口仍返回 `needs Activation`），不再依赖它。
+改用 Google Apps Script 直接写入 Google Sheet：不需要邮箱激活，提交即入表。
 
-```javascript
-const ENDPOINT = "https://formsubmit.co/ajax/zjc010100000@gmail.com";
-```
+## 5 步，约 3 分钟
 
-## 需要做一次的事：激活
-
-FormSubmit 第一次收到请求时会往该邮箱发一封 **Activate Form** 的邮件。
-在邮箱里点一次 “Activate Form”，之后所有提交就会转发到该邮箱。
-
-激活前提交的请求会返回：
-
-```
-{"success":"false","message":"This form needs Activation..."}
-```
-
-页面此时会把答案下载成 JSON 作为兜底，不影响被试继续使用，但那条**不会**进邮箱。
-所以请在发问卷之前先激活，并用一次测试提交确认能收到邮件。
-
-## 提交长什么样
-
-每封邮件正文是 JSON：
-
-```json
-{
-  "study": "diet-study-v1",
-  "submitted_at": "2026-11-12T09:31:02.114Z",
-  "session": "k3f9a2b1c4",
-  "answers": {"01": ["B","D"], "02": ["A","C"], "...": []},
-  "background": {"familiarity": "tried", "age": "18-24"},
-  "viewport": "1440x900"
-}
-```
-
-`answers` 的键是组号，值是被选中的两个标签（每组 7 段，标签 A–G）。
-标签到方法的映射只在 `CVPR27_DIET/user_study/key.csv`，**不要上传到网页目录**。
-
-## 可选：换成不回显邮箱的别名
-
-FormSubmit 激活后会提供一个随机别名（形如 `https://formsubmit.co/ajax/xxxxxxxx`）。
-把 `ENDPOINT` 换成别名再提交一次，可以避免邮箱地址直接出现在页面源码里。
-
-## 备选：Google Apps Script + Sheet
-
-如果想直接进表格而不是邮箱，把 `ENDPOINT` 换成 Apps Script 的 `/exec` 链接，代码：
+1. 打开 https://sheets.new 新建一个空白表格，命名随意（例如 `diet-study`）。
+2. 菜单 **扩展程序 → Apps Script**，删掉里面默认的 `function myFunction(){}`，
+   把下面整段贴进去，保存（Ctrl+S）：
 
 ```javascript
 function doPost(e) {
@@ -54,12 +16,50 @@ function doPost(e) {
     sheet.appendRow(['submitted_at','session','answers_json','familiarity','age','viewport']);
   }
   const d = JSON.parse(e.postData.contents);
-  sheet.appendRow([d.submitted_at, d.session, JSON.stringify(d.answers),
-                   (d.background||{}).familiarity||'', (d.background||{}).age||'', d.viewport||'']);
-  return ContentService.createTextOutput(JSON.stringify({ok:true}))
+  sheet.appendRow([
+    d.submitted_at,
+    d.session,
+    JSON.stringify(d.answers),
+    (d.background || {}).familiarity || '',
+    (d.background || {}).age || '',
+    d.viewport || ''
+  ]);
+  return ContentService.createTextOutput(JSON.stringify({ok: true}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet() {
+  return ContentService.createTextOutput(JSON.stringify({ok: true, msg: 'endpoint alive'}))
     .setMimeType(ContentService.MimeType.JSON);
 }
 ```
 
-注意页面用 `text/plain` 发 JSON 以避开预检；`app.js` 会根据 endpoint 是否含
-`formsubmit.co` 自动切换请求头。
+3. 右上 **部署 → 新建部署**，齿轮选 **Web 应用**：
+   - 说明：随便填
+   - **执行身份：我**
+   - **谁可以访问：任何人**  ← 必须是这个，否则页面收不到
+   点“部署”，第一次会让你授权：选账号 → 高级 → 转到（不安全）→ 允许。
+4. 复制生成的 **Web 应用网址**，形如
+   `https://script.google.com/macros/s/AKfycb....../exec`
+5. 把这个链接发给我，我填进 `app.js`、推上去，并用浏览器做一次真实提交，
+   然后在表格里确认出现一行。
+
+## 验证
+
+部署完成后，浏览器直接打开那个 `/exec` 链接应该看到：
+
+```json
+{"ok": true, "msg": "endpoint alive"}
+```
+
+看到就说明部署成功、权限正确。
+
+## 备注
+
+- 页面用 `text/plain` 发 JSON，避免 CORS 预检；服务端从 `e.postData.contents` 解析。
+- 表格里每行一次提交；`answers_json` 形如 `{"01":["B","D"],...}`。
+- 标签到方法的映射只在 `CVPR27_DIET/user_study/key.csv`，不要上传到网页目录。
+
+## 如果以后想换回 FormSubmit
+
+激活成功后把 `ENDPOINT` 改回 `https://formsubmit.co/ajax/<别名>` 即可，代码里已有分支。
