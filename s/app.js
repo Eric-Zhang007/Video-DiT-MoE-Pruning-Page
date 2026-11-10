@@ -143,9 +143,18 @@ function issueUrl(data) {
 }
 
 function showPanel(html) {
-  const box = document.getElementById("panel");
+  let box = document.getElementById("panel");
+  if (!box) {
+    // survives a stale cached index.html that predates the panel element
+    box = document.createElement("div");
+    box.id = "panel";
+    box.className = "panel";
+    const area = document.querySelector(".submit-area") || document.body;
+    area.appendChild(box);
+  }
   box.innerHTML = html;
   box.classList.remove("hidden");
+  box.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function submit() {
